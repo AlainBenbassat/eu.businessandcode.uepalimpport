@@ -24,6 +24,12 @@ class CRM_Uepalimport_Page_UepalImportExecute extends CRM_Core_Page {
       elseif ($action == 'importOrgs') {
         $msg = $importHelper->import('tmp_uepal_orgdir', 'importCleanedOrgs');
       }
+      elseif ($action == 'importHouseholds') {
+        $msg = $importHelper->import('tmp_uepal_household', 'importHouseholds');
+      }
+      elseif ($action == 'importPersons') {
+        $msg = $importHelper->import('tmp_uepal_pers', 'importPersons');
+      }
       else {
         $msg = 'Error: Unknown action';
       }

@@ -195,6 +195,173 @@ class CRM_Uepalimport_Helper {
     return TRUE;
   }
 
+  public static function importHouseholds(CRM_Queue_TaskContext $ctx, $limit) {
+    $sql = "
+      select
+        hh.*,
+        sp.id state_province_id
+      from
+        tmp_uepal_household hh
+      left outer join 
+        civicrm_state_province sp on sp.abbreviation = hh.county and sp.country_id = 1076  
+      where 
+        ifnull(status, '') = ''
+      limit
+        0, $limit
+    ";
+    $dao = CRM_Core_DAO::executeQuery($sql);
+
+    while ($dao->fetch()) {
+      // see if we have this contact
+      $params = [
+        'sequential' => 1,
+        'contact_type' => 'Household',
+        'household_name' => $dao->household_name,
+      ];
+      $org = civicrm_api3('Contact', 'get', $params);
+
+      if ($org['count'] == 0) {
+        $params['source'] = 'import6dec';
+        $params['external_identifier'] = $dao->external_identifier;
+
+        $params['api.address.create'] = [
+          'street_address' => $dao->street_address,
+          'supplemental_address_1' => $dao->supplemental_address_1 != '?' ? $dao->supplemental_address_1 : '',
+          'location_type_id' => 3,
+          'state_province_id' => $dao->state_province_id,
+          'city' => $dao->city,
+          'postal_code' => $dao->postal_code,
+          'country_id' => self::getcountryID($dao->country),
+        ];
+
+        if ($dao->phone_number) {
+          $pn = explode('|', $dao->phone_number);
+          $params['api.phone.create'] = [
+            'phone' => $pn[0],
+            'location_type_id' => 3,
+            'phone_type_id' => 1,
+          ];
+        }
+
+        $hh = civicrm_api3('Contact', 'create', $params);
+
+        $updateSQL = "update tmp_uepal_household set status = 'OK' where external_identifier = " . $dao->external_identifier;
+        CRM_Core_DAO::executeQuery($updateSQL);
+      }
+    }
+
+    return TRUE;
+  }
+
+  public static function importPersons(CRM_Queue_TaskContext $ctx, $limit) {
+    $sql = "
+      select
+        p.*
+      from
+        tmp_uepal_pers p
+      where 
+        ifnull(status, '') = ''
+      and 
+        first_name is not null 
+      and 
+        last_name is not null
+      limit
+        0, $limit
+    ";
+    $dao = CRM_Core_DAO::executeQuery($sql);
+
+    while ($dao->fetch()) {
+      // see if we have this contact
+      $params = [
+        'sequential' => 1,
+        'contact_type' => 'Individual',
+        'external_identifier' => 'P' . $dao->external_identifier,
+      ];
+      $org = civicrm_api3('Contact', 'get', $params);
+
+      if ($org['count'] == 0) {
+        $params['source'] = 'import6dec';
+        $params['external_identifier'] = 'P' . $dao->external_identifier;
+        $params['first_name'] = $dao->first_name;
+        $params['last_name'] = $dao->last_name;
+        $params['custom_20'] = $dao->custom_20;
+        $params['custom_12'] = $dao->custom_12;
+        $params['custom_14'] = $dao->custom_14;
+        $params['custom_15'] = $dao->custom_15;
+        $params['custom_21'] = $dao->custom_21;
+
+        if ($dao->prefix == 'Madame') {
+          $params['prefix_id'] = 1;
+        }
+        elseif ($dao->prefix == 'Monsieur') {
+          $params['prefix_id'] = 3;
+        }
+
+        if ($dao->gender_id == 'Masculin') {
+          $params['gender_id'] = 2;
+        }
+        elseif ($dao->gender_id == 'Féminin') {
+          $params['gender_id'] = 1;
+        }
+
+        if ($dao->addressee) {
+          $params['addressee_id'] = 4;
+          $params['addressee_custom'] = 4;
+          $params['addressee_display'] = $dao->addressee;
+        }
+
+        if ($dao->birth_date) {
+          $params['birth_date'] = $dao->birth_date;
+        }
+
+        if ($dao->phone_number) {
+          $params['api.phone.create'] = [
+            'phone' => $dao->phone_number,
+            'location_type_id' => 3,
+            'phone_type_id' => 2,
+          ];
+        }
+
+        $pers = civicrm_api3('Contact', 'create', $params);
+
+        // link to household
+        if ($dao->hh_head) {
+          self::linkToHouseHold($pers['id'], $dao->hh_head, 'head');
+        }
+        elseif ($dao->hh_member) {
+          self::linkToHouseHold($pers['id'], $dao->hh_member, 'member');
+        }
+
+        $updateSQL = "update tmp_uepal_pers set status = 'OK' where external_identifier = " . $dao->external_identifier;
+        CRM_Core_DAO::executeQuery($updateSQL);
+      }
+    }
+
+    return TRUE;
+  }
+
+  public static function linkToHouseHold($contactID, $householdExternalID, $relType) {
+    // get the household
+    $params = [
+      'sequential' => 1,
+      'contact_type' => 'Household',
+      'external_identifier' => $householdExternalID,
+    ];
+    $hh = civicrm_api3('Contact', 'get', $params);
+
+    if ($hh['count'] == 1) {
+      $params = [
+        'contact_id_a' => $contactID,
+        'contact_id_b' => $hh['values'][0]['id'],
+        'relationship_type_id' => $relType == 'head' ? 7 : 8,
+        'is_active' => 1,
+      ];
+
+      $org = civicrm_api3('Relationship', 'create', $params);
+    }
+
+  }
+
   public static function getcountryID($name) {
     $countryID = '';
     if ($name == 'ALLEMAGNE') {
