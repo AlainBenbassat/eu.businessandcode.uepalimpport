@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/uepalimport</path>
+    <page_callback>CRM_Uepalimport_Page_UepalImport</page_callback>
+    <title>UepalImport</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+    <item>
+        <path>civicrm/uepalimport-execute</path>
+        <page_callback>CRM_Uepalimport_Page_UepalImportExecute</page_callback>
+        <title>UepalImport - Execute</title>
+        <access_arguments>access CiviCRM</access_arguments>
+    </item>
+</menu>
