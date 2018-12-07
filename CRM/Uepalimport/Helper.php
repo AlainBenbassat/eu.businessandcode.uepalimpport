@@ -297,9 +297,28 @@ class CRM_Uepalimport_Helper {
         $params['first_name'] = $dao->first_name;
         $params['last_name'] = $dao->last_name;
         $params['custom_1'] = $dao->custom_20;
-        $params['custom_13'] = $dao->custom_12;
-        $params['custom_14'] = $dao->custom_14;
-        $params['custom_15'] = $dao->custom_15;
+
+        if ($dao->custom_12 == 'Oui') {
+          $params['custom_13'] = 1;
+        }
+        elseif ($dao->custom_12 == 'Non') {
+          $params['custom_13'] = 0;
+        }
+
+        if ($dao->custom_14 == 'Oui') {
+          $params['custom_14'] = 1;
+        }
+        elseif ($dao->custom_14 == 'Non') {
+          $params['custom_14'] = 0;
+        }
+
+        if ($dao->custom_15 == 'Oui') {
+          $params['custom_15'] = 1;
+        }
+        elseif ($dao->custom_15 == 'Non') {
+          $params['custom_15'] = 0;
+        }
+
         $params['custom_2'] = $dao->custom_21;
 
         /*
@@ -326,7 +345,7 @@ class CRM_Uepalimport_Helper {
 
         if ($dao->addressee) {
           $params['addressee_id'] = 4;
-          $params['addressee_custom'] = 4;
+          $params['addressee_custom'] = $dao->addressee;
           $params['addressee_display'] = $dao->addressee;
         }
 
