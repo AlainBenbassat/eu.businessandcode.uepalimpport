@@ -257,10 +257,13 @@ class CRM_Uepalimport_Helper {
     $sql = "
       select
         p.*
+        , round(empl.employer_id) as employer_external_identifier
       from
         tmp_uepal_pers p
+      left outer JOIN
+        tmp_uepal_employers empl on empl.contact_id = p.external_identifier
       where 
-        ifnull(status, '') = ''
+        ifnull(p.status, '') = ''
       and 
         first_name is not null 
       and 
@@ -290,6 +293,12 @@ class CRM_Uepalimport_Helper {
         $params['custom_15'] = $dao->custom_15;
         $params['custom_21'] = $dao->custom_21;
 
+        if ($dao->employer_external_identifier) {
+          $empl = self::getEmployerByExternalID($dao->employer_external_identifier);
+          $params['employer_id'] = $empl['id'];
+          $params['organization_name'] = $empl['organization_name'];
+        }
+
         if ($dao->prefix == 'Madame') {
           $params['prefix_id'] = 1;
         }
@@ -314,9 +323,9 @@ class CRM_Uepalimport_Helper {
           $params['birth_date'] = $dao->birth_date;
         }
 
-        if ($dao->phone_number) {
+        if ($dao->mobile_phone) {
           $params['api.phone.create'] = [
-            'phone' => $dao->phone_number,
+            'phone' => $dao->mobile_phone,
             'location_type_id' => 3,
             'phone_type_id' => 2,
           ];
@@ -326,11 +335,38 @@ class CRM_Uepalimport_Helper {
 
         // link to household
         if ($dao->hh_head) {
-          self::linkToHouseHold($pers['id'], $dao->hh_head, 'head');
+          self::createRelationship($pers['id'], $dao->hh_head, 7);
         }
         elseif ($dao->hh_member) {
-          self::linkToHouseHold($pers['id'], $dao->hh_member, 'member');
+          self::createRelationship($pers['id'], $dao->hh_member, 8);
         }
+
+        // link to parents
+        if ($dao->parents) {
+          $parents = explode(';', $dao->parents);
+          foreach ($parents as $parentExternalID) {
+            self::createRelationship($pers['id'], "P$parentExternalID", 1);
+          }
+        }
+
+        // link to siblings
+        if ($dao->siblings) {
+          $siblings = explode(';', $dao->siblings);
+          foreach ($siblings as $siblingExternalID) {
+            self::createRelationship($pers['id'], "P$siblingExternalID", 4);
+          }
+        }
+
+        // link spouse
+        if ($dao->spouse) {
+          self::createRelationship($pers['id'], "P" . $dao->spouse, 2);
+        }
+
+        /*
+        if ($dao->employer_external_identifier) {
+          self::createRelationship($pers['id'], $dao->employer_external_identifier, 5);
+        }
+        */
 
         $updateSQL = "update tmp_uepal_pers set status = 'OK' where external_identifier = " . $dao->external_identifier;
         CRM_Core_DAO::executeQuery($updateSQL);
@@ -340,12 +376,30 @@ class CRM_Uepalimport_Helper {
     return TRUE;
   }
 
-  public static function linkToHouseHold($contactID, $householdExternalID, $relType) {
-    // get the household
+  public static function getEmployerByExternalID($contactExternalID) {
+    // get the contact
     $params = [
       'sequential' => 1,
-      'contact_type' => 'Household',
-      'external_identifier' => $householdExternalID,
+      'external_identifier' => $contactExternalID,
+    ];
+    $c = civicrm_api3('Contact', 'get', $params);
+
+    if ($c['count'] > 0) {
+      $retval = [];
+      $retval['id'] = $c['values'][0]['id'];
+      $retval['organization_name'] = $c['values'][0]['organization_name'];
+      return $retval;
+    }
+    else {
+      return '';
+    }
+  }
+
+  public static function createRelationship($contactID, $contactExternalID, $relTypeID) {
+    // get the contact
+    $params = [
+      'sequential' => 1,
+      'external_identifier' => $contactExternalID,
     ];
     $hh = civicrm_api3('Contact', 'get', $params);
 
@@ -353,7 +407,7 @@ class CRM_Uepalimport_Helper {
       $params = [
         'contact_id_a' => $contactID,
         'contact_id_b' => $hh['values'][0]['id'],
-        'relationship_type_id' => $relType == 'head' ? 7 : 8,
+        'relationship_type_id' => $relTypeID,
         'is_active' => 1,
       ];
 
