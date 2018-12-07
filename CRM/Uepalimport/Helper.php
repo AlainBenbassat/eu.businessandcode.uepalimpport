@@ -395,17 +395,19 @@ class CRM_Uepalimport_Helper {
         if ($dao->employer_external_identifier) {
           self::createRelationship($pers['id'], $dao->employer_external_identifier, 5);
           $empl = self::getEmployerByExternalID($dao->employer_external_identifier);
-          $sqlEmpl = "
+          if ($empl) {
+            $sqlEmpl = "
             update civicrm_contact
             set employer_id = %1, organization_name = %2
             where id = %3
           ";
-          $sqlEmplParams = [
-            1 => [$empl['id'], 'Integer'],
-            2 => [$empl['organization_name'], 'String'],
-            3 => [$pers['id'], 'Integer'],
-          ];
-          CRM_Core_DAO::executeQuery($sqlEmpl, $sqlEmplParams);
+            $sqlEmplParams = [
+              1 => [$empl['id'], 'Integer'],
+              2 => [$empl['organization_name'], 'String'],
+              3 => [$pers['id'], 'Integer'],
+            ];
+            CRM_Core_DAO::executeQuery($sqlEmpl, $sqlEmplParams);
+          }
         }
 
         $updateSQL = "update tmp_uepal_pers set status = 'OK' where external_identifier = " . $dao->external_identifier;
