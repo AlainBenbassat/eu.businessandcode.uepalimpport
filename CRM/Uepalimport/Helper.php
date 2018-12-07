@@ -361,6 +361,13 @@ class CRM_Uepalimport_Helper {
           ];
         }
 
+        if ($dao->email) {
+          $params['api.email.create'] = [
+            'location_type_id' => 3,
+            'email' => $dao->email,
+          ];
+        }
+
         $pers = civicrm_api3('Contact', 'create', $params);
 
         // link to household
