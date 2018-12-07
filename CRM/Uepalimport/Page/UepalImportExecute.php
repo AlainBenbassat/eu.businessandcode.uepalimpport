@@ -21,6 +21,9 @@ class CRM_Uepalimport_Page_UepalImportExecute extends CRM_Core_Page {
       elseif ($action == 'deleteQueue') {
         $msg = $importHelper->deleteQueue();
       }
+      elseif ($action == 'clearStatus') {
+        $msg = $importHelper->clearStatus();
+      }
       elseif ($action == 'importOrgs') {
         $msg = $importHelper->import('tmp_uepal_orgdir', 'importCleanedOrgs');
       }

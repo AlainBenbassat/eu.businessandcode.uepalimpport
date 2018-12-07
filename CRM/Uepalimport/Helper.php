@@ -13,6 +13,15 @@ class CRM_Uepalimport_Helper {
     return $msg;
   }
 
+  public function clearStatus() {
+    $sql = "update tmp_uepal_orgdir set status = NULL";
+    CRM_Core_DAO::executeQuery($sql);
+    $sql = "update tmp_uepal_household set status = NULL";
+    CRM_Core_DAO::executeQuery($sql);
+    $sql = "update tmp_uepal_pers set status = NULL";
+    CRM_Core_DAO::executeQuery($sql);
+  }
+
   public function checkConfiguration() {
     $msg = [];
 
@@ -287,17 +296,19 @@ class CRM_Uepalimport_Helper {
         $params['external_identifier'] = 'P' . $dao->external_identifier;
         $params['first_name'] = $dao->first_name;
         $params['last_name'] = $dao->last_name;
-        $params['custom_20'] = $dao->custom_20;
-        $params['custom_12'] = $dao->custom_12;
+        $params['custom_1'] = $dao->custom_20;
+        $params['custom_13'] = $dao->custom_12;
         $params['custom_14'] = $dao->custom_14;
         $params['custom_15'] = $dao->custom_15;
-        $params['custom_21'] = $dao->custom_21;
+        $params['custom_2'] = $dao->custom_21;
 
+        /*
         if ($dao->employer_external_identifier) {
           $empl = self::getEmployerByExternalID($dao->employer_external_identifier);
           $params['employer_id'] = $empl['id'];
           $params['organization_name'] = $empl['organization_name'];
         }
+        */
 
         if ($dao->prefix == 'Madame') {
           $params['prefix_id'] = 1;
@@ -362,11 +373,21 @@ class CRM_Uepalimport_Helper {
           self::createRelationship($pers['id'], "P" . $dao->spouse, 2);
         }
 
-        /*
         if ($dao->employer_external_identifier) {
           self::createRelationship($pers['id'], $dao->employer_external_identifier, 5);
+          $empl = self::getEmployerByExternalID($dao->employer_external_identifier);
+          $sqlEmpl = "
+            update civicrm_contact
+            set employer_id = %1, organization_name = %2
+            where id = %3
+          ";
+          $sqlEmplParams = [
+            1 => [$empl['id'], 'Integer'],
+            2 => [$empl['organization_name'], 'String'],
+            3 => [$pers['id'], 'Integer'],
+          ];
+          CRM_Core_DAO::executeQuery($sqlEmpl, $sqlEmplParams);
         }
-        */
 
         $updateSQL = "update tmp_uepal_pers set status = 'OK' where external_identifier = " . $dao->external_identifier;
         CRM_Core_DAO::executeQuery($updateSQL);
